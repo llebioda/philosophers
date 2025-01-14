@@ -1,5 +1,5 @@
 CC = cc
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra -Werror #-g3 #-fsanitize=thread
 
 SRCFILES = main.c utils.c philosopher.c monitor.c ft_atol.c ft_strcmp.c
 SRCDIR = ./

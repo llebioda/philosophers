@@ -1,7 +1,7 @@
 CC = cc
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra -Werror #-g3 #-fsanitize=thread
 
-SRCFILES = main.c utils.c philosopher.c philo_monitor.c ft_atol.c ft_strcmp.c
+SRCFILES = main.c utils.c philosopher.c philo_actions.c philo_monitor.c get_mutex_value.c ft_calloc.c ft_atol.c ft_strcmp.c
 SRCDIR = ./
 SRCS = $(addprefix $(SRCDIR), $(SRCFILES))
 OBJDIR = ./build/

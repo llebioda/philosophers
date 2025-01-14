@@ -5,127 +5,72 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: llebioda <llebioda@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/12/16 17:26:21 by llebioda          #+#    #+#             */
-/*   Updated: 2024/12/23 22:24:12 by llebioda         ###   ########.fr       */
+/*   Created: 2025/01/10 11:30:13 by llebioda          #+#    #+#             */
+/*   Updated: 2025/01/10 11:57:53 by llebioda         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
 
-int	check_is_dead(t_philosopher *philo)
+static void	philo_start(t_philosopher *philo)
 {
-	if (philo->data->quit == 1)
-		return (1);
-	if (get_timestamp() - philo->last_meal_time > philo->data->time_to_die)
+	log_state(philo, "is thinking");
+	if (philo->data->philo_count % 2 == 1)
 	{
-		log_state(philo, "died");
-		return (1);
+		if (philo->id == 1)
+			return ;
+		else if (philo->id % 2 == 0)
+			usleep(philo->data->time_to_eat * 500);
+		else
+			usleep(philo->data->time_to_eat * 1000);
 	}
-	return (0);
-}
-
-int	check_simulation_ended(t_data *data)
-{
-	int	i;
-
-	if (data->quit == 1)
-		return (1);
-	if (data->min_eat_count < 0)
-		return (0);
-	i = 0;
-	while (i < data->philo_count)
-	{
-		if (data->philosophers[i].eat_count < data->min_eat_count)
-			return (0);
-		i++;
-	}
-	data->quit = 1;
-	return (1);
-}
-
-int	get_forks(t_philosopher *philo)
-{
-	pthread_mutex_lock(philo->forks[philo->id % 2]);
-	if (check_is_dead(philo) == 1)
-		return (pthread_mutex_unlock(philo->forks[philo->id % 2]), 0);
-	log_state(philo, "has taken a fork");
-	if (philo->data->philo_count == 1)
-	{
-		if (philo->data->time_to_die * 1000 > 0)
-			usleep(philo->data->time_to_die * 1000);
-		log_state(philo, "died");
-		pthread_mutex_unlock(philo->forks[philo->id % 2]);
-		return (0);
-	}
-	pthread_mutex_lock(philo->forks[(philo->id + 1) % 2]);
-	if (check_is_dead(philo) == 1)
-	{
-		pthread_mutex_unlock(philo->forks[0]);
-		pthread_mutex_unlock(philo->forks[1]);
-		return (0);
-	}
-	log_state(philo, "has taken a fork");
-	return (1);
-}
-
-int	eat_philo(t_philosopher *philo)
-{
-	log_state(philo, "is eating");
-	if (philo->data->time_to_eat * 1000 > 0)
+	else if (philo->id % 2 == 1)
 		usleep(philo->data->time_to_eat * 1000);
-	philo->last_meal_time = get_timestamp();
-	philo->eat_count++;
-	pthread_mutex_unlock(philo->forks[0]);
-	pthread_mutex_unlock(philo->forks[1]);
-	return (1);
 }
 
-// int	eat_philo(t_philosopher *philo)
-// {
-// 	long	time;
-// 	int		return_value;
-
-// 	time = philo->data->time_to_die - (get_timestamp() - philo->last_meal_time);
-// 	return_value = 0;
-// 	log_state(philo, "is eating");
-// 	if (time <= philo->data->time_to_eat)
-// 	{
-// 		if (time * 1000 > 0)
-// 			usleep(time * 1000);
-// 		log_state(philo, "died");
-// 	}
-// 	else
-// 	{
-// 		if (philo->data->time_to_eat * 1000 > 0)
-// 			usleep(philo->data->time_to_eat * 1000);
-// 		philo->last_meal_time = get_timestamp();
-// 		philo->eat_count++;
-// 		return_value = 1;
-// 	}
-// 	pthread_mutex_unlock(philo->forks[0]);
-// 	pthread_mutex_unlock(philo->forks[1]);
-// 	return (return_value);
-// }
-
-int	sleep_philo(t_philosopher *philo)
+void	*philo_routine(void *arg)
 {
-	long	time;
-	int		return_value;
+	t_philosopher	*p;
 
-	time = philo->data->time_to_die - (get_timestamp() - philo->last_meal_time);
-	return_value = 0;
-	log_state(philo, "is sleeping");
-	if (time <= philo->data->time_to_sleep)
+	p = (t_philosopher *)arg;
+	p->forks[0] = &(p->data->forks[p->id - 1]);
+	p->forks[1] = &(p->data->forks[p->id % p->data->philo_count]);
+	philo_start(p);
+	while (1)
 	{
-		if (time * 1000 > 0)
-			usleep(time * 1000);
-		log_state(philo, "died");
+		if (get_forks(p) == 0)
+			return (NULL);
+		if (check_is_dead(p) == 1)
+			return (pthread_mutex_unlock(p->forks[0]),
+				pthread_mutex_unlock(p->forks[1]), NULL);
+		if (eat_philo(p) == 0)
+			return (NULL);
+		if (check_simulation_ended(p->data) == 1)
+			return (NULL);
+		if (check_is_dead(p) == 1)
+			return (NULL);
+		if (sleep_philo(p) == 0)
+			return (NULL);
+		if (check_is_dead(p) == 1)
+			return (NULL);
+		log_state(p, "is thinking");
 	}
-	else
-	{
-		if (philo->data->time_to_sleep * 1000 > 0)
-			usleep(philo->data->time_to_sleep * 1000);
-		return_value = 1;
-	}
-	return (return_value);
+}
+
+int	philo_init(t_data *data, int id)
+{
+	t_philosopher	*philo;
+
+	philo = &(data->philosophers[id]);
+	if (pthread_mutex_init(&(philo->eat_count_mutex), NULL) != 0)
+		return (0);
+	philo->eat_count_mutex_init = 1;
+	if (pthread_mutex_init(&(philo->last_meal_time_mutex), NULL) != 0)
+		return (pthread_mutex_destroy(&(philo->eat_count_mutex)), 0);
+	philo->last_meal_time_mutex_init = 1;
+	philo->id = id + 1;
+	philo->eat_count = 0;
+	philo->last_meal_time = get_timestamp();
+	philo->data = data;
+	return (1);
 }
